@@ -52,9 +52,9 @@ class BaseEstimator(object):
 
     def infer_model_init(self, model, features, mode, params):
         source = self.get_infer_from_input(features, params)
-        emb, loss, _, _ = model(source)
+        emb, loss, _, _, predict = model(source)
         source, emb = self.transfer_embedding(source, emb)
-        prediction = {'idx': source, 'embedding': emb}
+        prediction = {'idx': source, 'embedding': emb, 'predict':predict}
         spec = tf.estimator.EstimatorSpec(mode=mode, predictions=prediction)
         return spec
 
@@ -63,7 +63,7 @@ class BaseEstimator(object):
 
     def evaluate_model_init(self, model, features, mode, params):
         source = self.get_evaluate_from_input(features, params)
-        _, loss, metric_name, metric = model(source)
+        _, loss, metric_name, metric, _ = model(source)
         tf.train.get_or_create_global_step()
         tensor_to_log = {'loss': loss, metric_name: metric}
         hooks = []
@@ -80,7 +80,7 @@ class BaseEstimator(object):
 
     def train_model_init(self, model, features, mode, params):
         source = self.get_train_from_input(features, params)
-        _, loss, metric_name, metric = model(source)
+        _, loss, metric_name, metric, _ = model(source)
         global_step = tf.train.get_or_create_global_step()
         optimizer = tf_euler.utils.optimizers.get(
                              params.get('optimizer', 'adam'))(
@@ -166,18 +166,24 @@ class BaseEstimator(object):
             worker_idx = 0
         out_idxs = []
         out_embeddings = []
+        out_predicts =[]
         for output in estimator.predict(input_fn=self.evaluate_input_fn):
             out_idxs.append(output['idx'])
             out_embeddings.append(output['embedding'])
+            out_predicts.append(output['predict'])
         out_embeddings = np.asarray(out_embeddings)
         out_idxs = np.asarray(out_idxs)
+        out_predicts = np.asarray(out_predicts)
         with open(os.path.realpath(os.path.join(self.params['infer_dir'],
                   'embedding_{}.npy'.format(worker_idx))), 'wb') as emb_file:
             np.save(emb_file, out_embeddings)
         with open(os.path.realpath(os.path.join(self.params['infer_dir'],
                   'ids_{}.npy'.format(worker_idx))), 'wb') as ids_file:
             np.save(ids_file, out_idxs)
-
+        with open(os.path.realpath(os.path.join(self.params['infer_dir'],
+                  'predicts_{}.npy'.format(worker_idx))), 'wb') as pred_file:
+            np.save(pred_file, out_predicts)
+    
     def train_input_fn(self):
         raise NotImplementedError
 
