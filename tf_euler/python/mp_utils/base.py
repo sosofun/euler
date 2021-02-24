@@ -44,7 +44,8 @@ class SuperviseModel(object):
         loss = tf.nn.sigmoid_cross_entropy_with_logits(
             labels=label, logits=logit)
         loss = tf.reduce_mean(loss)
-        return (embedding, loss, self.metric_name, metric)
+        #add logit output
+        return (embedding, loss, self.metric_name, metric, logit)
 
 
 class UnsuperviseModel(object):
